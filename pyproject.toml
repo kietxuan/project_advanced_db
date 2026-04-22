@@ -1,9 +1,9 @@
 [project]
 name = "project_advanced_db"
 version = "0.1.0"
-description = ""
+description = "Advanced Database Project Backend"
 authors = [
-    {name = "kietxuan",email = "kietnguyenxuan2401@gmail.com"}
+    {name = "kietxuan", email = "kietnguyenxuan2401@gmail.com"}
 ]
 requires-python = ">=3.13"
 dependencies = [
@@ -16,6 +16,8 @@ dependencies = [
     "faker (>=40.13.0,<41.0.0)"
 ]
 
+[tool.poetry]
+package-mode = false
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
