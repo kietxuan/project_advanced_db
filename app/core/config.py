@@ -9,9 +9,9 @@ class Settings(BaseSettings):
 
 try:
     settings = Settings()
-    print(" Đã nạp file .env thành công!")
+    print("[OK] .env loaded successfully!")
 except Exception as e:
-    print(f" Lỗi nạp file .env: {e}")
+    print(f"[ERROR] Failed to load .env: {e}")
 
     import os
-    print(f"Thư mục hiện tại: {os.getcwd()}")
+    print(f"Current directory: {os.getcwd()}")

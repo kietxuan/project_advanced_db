@@ -87,7 +87,9 @@ async def trace_custom_network(
 
     async with db.driver.session() as session:
         result = await session.run(query, params)
-        records = await result.fetch_all()
+        
+        # FIX: fetch_all() is not supported in neo4j driver, use async loop instead
+        records = [record async for record in result]
 
         if not records:
              return NetworkResponse(nodes=[], edges=[], metadata={"message": "No data found"})
@@ -126,6 +128,45 @@ async def trace_custom_network(
             nodes=list(nodes_dict.values()),
             edges=edges_list,
             metadata={"depth_rendered": max_depth, "execution_time_ms": execution_time}
+        )
+
+@router.get("/search", response_model=NetworkResponse)
+async def search_posts(keyword: str = Query(..., description="Keyword to search")):
+    if not db.driver:
+        raise HTTPException(status_code=503, detail="Database connection missing")
+
+    start_time = time.time()
+    
+    # Use Fulltext Index instead of standard MATCH for extreme performance
+    query = """
+    CALL db.index.fulltext.queryNodes("post_content_index", $keyword) 
+    YIELD node, score
+    RETURN node.post_id AS post_id, node.content AS content, score
+    ORDER BY score DESC LIMIT 10
+    """
+    
+    async with db.driver.session() as session:
+        result = await session.run(query, {"keyword": keyword})
+        
+        # FIX: Async list comprehension for extracting records
+        records = [record async for record in result]
+
+        nodes_dict = {}
+        for rec in records:
+            node_id = rec["post_id"]
+            nodes_dict[node_id] = {
+                "id": node_id,
+                "label": f"Post\n{node_id[-4:]}",
+                "group": "Highlight", 
+                "title": f"Score: {rec['score']:.2f}\nContent: {rec['content']}"
+            }
+
+        execution_time = round((time.time() - start_time) * 1000, 2)
+
+        return NetworkResponse(
+            nodes=list(nodes_dict.values()),
+            edges=[], 
+            metadata={"execution_time_ms": execution_time, "keyword": keyword}
         )
 
 @router.get("/top-spreaders")
@@ -186,41 +227,3 @@ async def get_top_domains():
         data = [{"domain": rec["domain"], "count": rec["reference_count"]} async for rec in result]
         return {"status": "success", "data": data}
 
-@router.get("/search", response_model=NetworkResponse)
-async def search_posts(keyword: str = Query(..., description="Từ khóa cần tìm")):
-    """Tìm kiếm siêu tốc bài viết bằng Full-Text Index của Neo4j"""
-    if not db.driver:
-        raise HTTPException(status_code=503, detail="Database connection missing")
-
-    start_time = time.time()
-    
-    # Sử dụng Fulltext Index thay vì MATCH thông thường
-    query = """
-    CALL db.index.fulltext.queryNodes("post_content_index", $keyword) 
-    YIELD node, score
-    RETURN node.post_id AS post_id, node.content AS content, score
-    ORDER BY score DESC LIMIT 10
-    """
-    
-    async with db.driver.session() as session:
-        result = await session.run(query, {"keyword": keyword})
-        records = await result.fetch_all()
-
-        nodes_dict = {}
-        for rec in records:
-            node_id = rec["post_id"]
-            nodes_dict[node_id] = {
-                "id": node_id,
-                "label": f"Post\n{node_id[-4:]}",
-                "group": "Highlight", # Gắn group 'Highlight' để Frontend tô màu Vàng rực rỡ
-                "title": f"Điểm chuẩn xác: {rec['score']:.2f}\nNội dung: {rec['content']}"
-            }
-
-        execution_time = round((time.time() - start_time) * 1000, 2)
-
-        # Trả về format giống hệt truy vết mạng lưới để UI vẽ ra các node tìm kiếm được
-        return NetworkResponse(
-            nodes=list(nodes_dict.values()),
-            edges=[], # Search độc lập nên tạm không cần vẽ dây
-            metadata={"execution_time_ms": execution_time, "keyword": keyword}
-        )

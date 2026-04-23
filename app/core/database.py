@@ -23,20 +23,20 @@ class Neo4jConnection:
             )
             # Ping thử DB để xác nhận kết nối
             await self.driver.verify_connectivity()
-            logger.info(" KẾT NỐI NEO4J AURA THÀNH CÔNG!")
+            logger.info("[OK] NEO4J AURA CONNECTED SUCCESSFULLY!")
             
         except AuthError:
-            logger.error(" LỖI XÁC THỰC: Sai Username hoặc Password. Hãy kiểm tra file .env!")
+            logger.error("[AUTH ERROR] Wrong Username or Password. Check your .env file!")
         except ServiceUnavailable:
-            logger.error(" LỖI MẠNG HOẶC AURA ĐANG TẠM DỪNG: Hãy lên trang chủ Neo4j Aura để 'Resume' database.")
+            logger.error("[NETWORK ERROR] Aura may be paused. Go to Neo4j Aura console to 'Resume' database.")
         except Exception as e:
-            logger.error(f" LỖI KHÔNG XÁC ĐỊNH: {e}")
+            logger.error(f"[UNKNOWN ERROR] {e}")
 
     async def close(self):
         """Đóng connection pool an toàn khi tắt server"""
         if self.driver:
             await self.driver.close()
-            logger.info(" ĐÃ ĐÓNG KẾT NỐI NEO4J AN TOÀN.")
+            logger.info("[OK] NEO4J CONNECTION CLOSED SAFELY.")
 
 # Khởi tạo một instance duy nhất (Singleton)
 db = Neo4jConnection()
