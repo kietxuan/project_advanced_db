@@ -227,3 +227,23 @@ async def get_top_domains():
         data = [{"domain": rec["domain"], "count": rec["reference_count"]} async for rec in result]
         return {"status": "success", "data": data}
 
+@router.get("/pagerank")
+async def get_pagerank_approximation():
+    """Thuật toán xấp xỉ PageRank bằng Cypher thuần (Không cần GDS Plugin)"""
+    if not db.driver:
+        raise HTTPException(status_code=503, detail="Database connection missing")
+        
+    query = """
+    MATCH (author:Account)-[:AUTHORED]->(p:Post)
+    OPTIONAL MATCH path = (p)<-[:SHARED_FROM*1..3]-(sharer_post:Post)<-[:AUTHORED]-(sharer:Account)
+    WITH author, path
+    // Tính điểm PageRank xấp xỉ: Các share trực tiếp (F1) điểm cao, càng xa (F2, F3) điểm càng giảm
+    WITH author, sum(CASE WHEN path IS NOT NULL THEN 1.0 / (length(path) * length(path)) ELSE 0 END) AS pagerank_score
+    RETURN author.username AS username, pagerank_score
+    ORDER BY pagerank_score DESC LIMIT 5
+    """
+    
+    async with db.driver.session() as session:
+        result = await session.run(query)
+        data = [{"username": rec["username"], "score": round(rec["pagerank_score"], 2)} async for rec in result]
+        return {"status": "success", "data": data}
